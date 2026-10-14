@@ -1,0 +1,3 @@
+qsub -I -q normalsr  -P um09 -l walltime=00:05:00,ncpus=12,mem=80GB,jobfs=20GB,storage=gdata/um09+scratch/um09
+qsub -I -qgpuvolta -Pum09 -lwalltime=02:00:00,ncpus=48,ngpus=4,mem=192GB,jobfs=100GB,storage=scratch/ue12+gdata/dk92+scratch/um09+gdata/um09
+qsub -I -qgpuvolta -Pum09 -lwalltime=02:00:00,ncpus=12,ngpus=1,mem=192GB,jobfs=100GB,storage=scratch/um09

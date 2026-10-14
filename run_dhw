@@ -1,0 +1,32 @@
+#!/bin/bash
+#PBS -q normalsr
+#PBS -P um09
+#PBS -l ncpus=12
+#PBS -l mem=128GB
+#PBS -l jobfs=100GB
+#PBS -l walltime=08:00:00
+#PBS -l storage=gdata/ia39+scratch/ue12+scratch/um09+gdata/um09
+#PBS -l wd
+#PBS -j oe
+
+# ---- Environment -------------------------------------------------------
+#module load cuda/12.4.0    # H200 requires CUDA 12+
+
+
+# Activate environment
+source ~/.bashrc
+conda activate /g/data/um09/jt9268/envs/lema-py311
+
+cp ~/DHW-project/*py  /scratch/um09/jt9268/DHW-project
+cd /scratch/um09/jt9268/DHW-project
+
+echo "=== Phase 1: Data Preparation ==="
+echo "Start: $(date)"
+echo "Host: $(hostname)"
+
+python main.py --phase 1
+
+echo ""
+echo "End: $(date)"
+echo ""
+echo ""

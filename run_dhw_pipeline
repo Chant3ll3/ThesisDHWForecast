@@ -1,0 +1,74 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -P um09
+#PBS -N dhw_pipeline
+#PBS -l ncpus=8
+#PBS -l mem=32GB
+#PBS -l walltime=02:00:00
+#PBS -l storage=gdata/ia39+scratch/um09+gdata/um09
+#PBS -l wd
+#PBS -j oe
+#PBS -M u7157201@anu.edu.au
+#PBS -m abe
+
+
+# ── DHW pipeline (CPU only, no GPUs needed) ─────────────────────────
+#
+#   1. ConcatChains_DHW01.py  - destandardise, add trend, build SST files
+#   2. Correct_CalcDHW.py     - DHW / HotSpot products
+#   3. Correct_PlotDHW.py     - metrics, PDF and CSV
+#
+# Each step only runs if the previous one finished without an error.
+# Submit:  qsub run_dhw_pipeline.pbs
+
+# set -o pipefail   # (not -e/-u: conda's activate scripts trip on those)
+
+# ---- Environment -------------------------------------------------------
+
+source /g/data/um09/xl5758/miniforge3/etc/profile.d/conda.sh
+conda activate /scratch/um09/xl5758/envs/comp-py310
+
+cp ~/DHW-project/*py  /scratch/um09/xl5758/DHW-project
+cd /scratch/um09/xl5758/DHW-project
+
+mkdir -p logs
+
+echo "=== DHW pipeline ==="
+echo "Start  : $(date)"
+echo "Node   : $(hostname)"
+echo "Python : $(which python)"
+echo ""
+
+# ---- Run the three steps in order ---------------------------------------
+
+run_step () {
+    local script="$1"
+    echo "────────────────────────────────────────────────────────────"
+    echo ">>> ${script}   started $(date '+%H:%M:%S')"
+    echo "────────────────────────────────────────────────────────────"
+    local t0=$SECONDS
+
+    python "${script}"
+    local status=$?
+
+    local mins=$(( (SECONDS - t0) / 60 ))
+    local secs=$(( (SECONDS - t0) % 60 ))
+    if [ ${status} -ne 0 ]; then
+        echo ""
+        echo "!!! ${script} FAILED (exit code ${status}) after ${mins}m ${secs}s"
+        echo "!!! Stopping: later steps were NOT run."
+        echo "End: $(date)"
+        exit ${status}
+    fi
+    echo ""
+    echo ">>> ${script}   finished OK in ${mins}m ${secs}s"
+    echo ""
+}
+
+run_step ConcatChains_DHW01.py
+run_step Correct_CalcDHW.py
+run_step Correct_PlotDHW.py
+
+echo ""
+echo "End: $(date)"
+echo "=== DHW pipeline complete ==="

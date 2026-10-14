@@ -1,0 +1,17 @@
+# data, model outputs, checkpoints
+*.nc
+*.pt
+*.pth
+*.npy
+*.npz
+*.h5
+checkpoints*/
+results*/
+logs/
+# PBS job output
+*.o[0-9]*
+*.e[0-9]*
+# python clutter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

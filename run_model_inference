@@ -1,0 +1,49 @@
+#!/bin/bash
+#PBS -q gpuvolta
+#PBS -P um09
+#PBS -l ngpus=1
+#PBS -l ncpus=12
+#PBS -l mem=192GB
+#PBS -l jobfs=100GB
+#PBS -l walltime=02:00:00
+#PBS -l storage=scratch/um09
+#PBS -l wd
+#PBS -j oe
+#PBS -M u7157201@anu.edu.au
+#PBS -m abe
+
+# ── Phase 3: Model Inference ────────────────────────────────────────
+
+echo "=== Model Inference Job ==="
+echo "Start: $(date)"
+echo "Node : $(hostname)"
+echo ""
+
+# ── Environment setup ──────────────────────────────────────────────
+
+source /scratch/um09/xl5758/miniconda3/etc/profile.d/conda.sh
+conda activate /scratch/um09/xl5758/envs/comp-py310 
+
+# Copy latest code to scratch (fast I/O)
+cp ~/DHW-project/*py /scratch/um09/xl5758/DHW-project
+cd /scratch/um09/xl5758/DHW-project
+
+mkdir -p logs results
+
+# ── GPU / PyTorch settings ─────────────────────────────────────────
+
+export CUDA_VISIBLE_DEVICES=0
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+# (Optional but useful for debugging)
+export TORCH_DISTRIBUTED_DEBUG=OFF
+
+# ── Run inference ─────────────────────────────────────────────────
+
+echo "Running inference..."
+
+python3 model_inference.py
+
+echo ""
+echo "End: $(date)"
+echo "=== Inference complete ==="

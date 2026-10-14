@@ -1,0 +1,39 @@
+#!/bin/bash
+#PBS -q normal
+#PBS -P um09
+#PBS -l ncpus=48
+#PBS -l mem=190GB
+#PBS -l jobfs=400GB
+#PBS -l walltime=10:00:00
+#PBS -l storage=gdata/ia39+scratch/um09+gdata/um09
+#PBS -l wd
+#PBS -j oe
+#PBS -M u7157201@anu.edu.au
+#PBS -m abe
+
+# ---- Environment -------------------------------------------------------
+#module load cuda/12.4.0    # H200 requires CUDA 12+
+
+
+# Activate environment
+#source ~/.bashrc
+source /scratch/um09/xl5758/miniconda3/etc/profile.d/conda.sh
+conda activate /scratch/um09/xl5758/envs/comp-py310 
+
+cp ~/DHW-project/*py  /scratch/um09/xl5758/DHW-project
+cd /scratch/um09/xl5758/DHW-project
+
+module load netcdf/4.9.2
+export HDF5_USE_FILE_LOCKING=FALSE
+
+echo "=== Phase 1: Data Preparation ==="
+echo "Start: $(date)"
+echo "Host: $(hostname)"
+
+python3 data_preparation.py
+
+echo ""
+echo "End: $(date)"
+echo ""
+echo ""
+

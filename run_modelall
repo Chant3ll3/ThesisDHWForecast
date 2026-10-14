@@ -1,0 +1,164 @@
+#!/bin/bash
+#PBS -q gpuhopper
+#PBS -P um09
+#PBS -l ngpus=4
+#PBS -l ncpus=48
+#PBS -l mem=1024GB
+#PBS -l jobfs=100GB
+#PBS -l walltime=08:00:00
+#PBS -l storage=gdata/ia39+scratch/um09+gdata/um09
+#PBS -l wd
+#PBS -j oe
+#PBS -M u7157201@anu.edu.au
+#PBS -m abe
+
+# ── Training + full post-training pipeline, in one job ──────────────
+#
+#   0. model_training.py       - distributed training (torchrun, all GPUs)
+#   1. model_inference.py      - forecast chains (GPU)
+#   2. results_analysis.py     - SST skill metrics and plots
+#   3. ConcatChains_DHW01.py   - destandardise, add trend, build SST files
+#   4. Correct_CalcDHW.py      - DHW / HotSpot products
+#   5. Correct_PlotDHW.py      - DHW metrics, PDF and CSV
+#
+# Each step only runs if the previous one finished without an error.
+# Walltime = training time + pipeline time; adjust after a first run.
+# Submit:  qsub run_train_and_pipeline.pbs
+
+# set -o pipefail   # (not -e/-u: conda's activate scripts trip on those)
+
+# ---- Environment -------------------------------------------------------
+
+source /g/data/um09/xl5758/miniforge3/etc/profile.d/conda.sh
+conda activate /scratch/um09/xl5758/envs/comp-py310
+
+cp ~/DHW-project/*py  /scratch/um09/xl5758/DHW-project
+cd /scratch/um09/xl5758/DHW-project
+
+mkdir -p logs checkpoints results
+
+stop_job () {   # $1 = what failed, $2 = exit code
+    echo ""
+    echo "!!! $1 FAILED (exit code $2)"
+    echo "!!! Stopping: later steps were NOT run."
+    echo "End: $(date)"
+    exit $2
+}
+
+# ── Detect node topology ─────────────────────────────────────────────
+
+GPUS_PER_NODE=4                                  # gpuvolta
+NODES=( $(sort -u "$PBS_NODEFILE") )
+NNODES=${#NODES[@]}
+TOTAL_GPUS=$(( NNODES * GPUS_PER_NODE ))
+MASTER_ADDR=${NODES[0]}
+MASTER_PORT=29500
+
+echo "=== Training + pipeline ==="
+echo "Start     : $(date)"
+echo "Nodes     : ${NNODES} — ${NODES[*]}"
+echo "GPUs/node : ${GPUS_PER_NODE}"
+echo "Total GPUs: ${TOTAL_GPUS}"
+echo "Master    : ${MASTER_ADDR}:${MASTER_PORT}"
+echo "Python    : $(which python)"
+echo ""
+
+# ── NCCL tuning for Gadi InfiniBand ──────────────────────────────────
+
+export NCCL_DEBUG=INFO
+export NCCL_IB_DISABLE=0
+export NCCL_SOCKET_IFNAME=ib0
+export NCCL_IB_HCA=mlx5
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+# ═════════════════════════════════════════════════════════════════════
+# STEP 0: Training
+# ═════════════════════════════════════════════════════════════════════
+
+echo "────────────────────────────────────────────────────────────"
+echo ">>> model_training.py   started $(date '+%H:%M:%S')"
+echo "────────────────────────────────────────────────────────────"
+T0=$SECONDS
+
+if [ "${NNODES}" -eq 1 ]; then
+    echo "Launching single-node with torchrun (${GPUS_PER_NODE} GPUs)"
+    torchrun \
+        --standalone \
+        --nproc_per_node=${GPUS_PER_NODE} \
+        model_training.py
+    TRAIN_STATUS=$?
+else
+    echo "Launching multi-node with torchrun via pbsdsh"
+    export MASTER_ADDR MASTER_PORT GPUS_PER_NODE NNODES
+
+    PIDS=()
+    NODE_RANK=0
+    for NODE in "${NODES[@]}"; do
+        echo "  Node ${NODE_RANK}: ${NODE}"
+        pbsdsh -n $(( NODE_RANK * GPUS_PER_NODE )) -- bash -c "
+            source ~/.bashrc
+            conda activate /scratch/um09/xl5758/envs/comp-py310
+            cd /scratch/um09/xl5758/DHW-project
+
+            export MASTER_ADDR=${MASTER_ADDR}
+            export MASTER_PORT=${MASTER_PORT}
+            export NCCL_DEBUG=INFO
+            export NCCL_IB_DISABLE=0
+            export NCCL_SOCKET_IFNAME=ib0
+            export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+            torchrun \
+                --nnodes=${NNODES} \
+                --nproc_per_node=${GPUS_PER_NODE} \
+                --node_rank=${NODE_RANK} \
+                --master_addr=${MASTER_ADDR} \
+                --master_port=${MASTER_PORT} \
+                model_training.py
+        " &
+        PIDS+=($!)
+        NODE_RANK=$(( NODE_RANK + 1 ))
+    done
+
+    # Wait for every node; fail if any node failed
+    TRAIN_STATUS=0
+    for PID in "${PIDS[@]}"; do
+        wait ${PID} || TRAIN_STATUS=$?
+    done
+fi
+
+echo ""
+echo ">>> model_training.py   took $(( (SECONDS - T0) / 60 ))m $(( (SECONDS - T0) % 60 ))s"
+[ ${TRAIN_STATUS} -ne 0 ] && stop_job "model_training.py" ${TRAIN_STATUS}
+echo ">>> model_training.py   finished OK"
+echo ""
+
+# ═════════════════════════════════════════════════════════════════════
+# STEPS 1-5: Inference, analysis and DHW (single process each)
+# ═════════════════════════════════════════════════════════════════════
+
+run_step () {
+    local script="$1"
+    echo "────────────────────────────────────────────────────────────"
+    echo ">>> ${script}   started $(date '+%H:%M:%S')"
+    echo "────────────────────────────────────────────────────────────"
+    local t0=$SECONDS
+
+    python "${script}"
+    local status=$?
+
+    echo ""
+    echo ">>> ${script}   took $(( (SECONDS - t0) / 60 ))m $(( (SECONDS - t0) % 60 ))s"
+    [ ${status} -ne 0 ] && stop_job "${script}" ${status}
+    echo ">>> ${script}   finished OK"
+    echo ""
+}
+
+run_step model_inference.py
+run_step results_analysis.py
+run_step ConcatChains_DHW01.py
+run_step Correct_CalcDHW.py
+run_step Correct_PlotDHW.py
+
+echo ""
+echo "End: $(date)"
+echo "=== Training + pipeline complete ==="
