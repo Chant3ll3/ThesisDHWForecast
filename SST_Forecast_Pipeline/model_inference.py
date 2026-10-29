@@ -13,8 +13,8 @@ import xarray as xr
 import torch
 
 from config import cfg
-from sfno_model import SFNO, make_grid_features, make_seasonal_encoding
-from sst_dataset import load_split_data, _compute_fractional_day_of_year
+from SST_Forecast_Pipeline.sfno_model import SFNO, make_grid_features, make_seasonal_encoding
+from SST_Forecast_Pipeline.sst_dataset import load_split_data, _compute_fractional_day_of_year
 
 logger = logging.getLogger("Phase3_Inference")
 logger.setLevel(logging.INFO)
