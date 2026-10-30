@@ -1,7 +1,7 @@
 """
 model_inference.py — Phase 3: Model Inference.
 
-Loads the trained SFNO and performs autoregressive inference on
+Loads the trained fno and performs autoregressive inference on
 validation and/or test splits.  Stores predictions alongside actuals
 in NetCDF with dimensions (chain, lead_step, lat, lon).
 """
@@ -13,7 +13,7 @@ import xarray as xr
 import torch
 
 from config import cfg
-from SST_Forecast_Pipeline.sfno_model import SFNO, make_grid_features, make_seasonal_encoding
+from SST_Forecast_Pipeline.fno_model import fno, make_grid_features, make_seasonal_encoding
 from SST_Forecast_Pipeline.sst_dataset import load_split_data, _compute_fractional_day_of_year
 
 logger = logging.getLogger("Phase3_Inference")
@@ -31,7 +31,7 @@ def load_model(device):
     conf = cfg.model_inference
     logger.info(f"Loading model from {conf.model_path}")
     ckpt = torch.load(conf.model_path, map_location=device, weights_only=False)
-    model = SFNO().to(device)
+    model = fno().to(device)
     model.load_state_dict(ckpt["model_state_dict"])
     model.eval()
     logger.info(f"  Epoch: {ckpt.get('epoch','?')}, "
