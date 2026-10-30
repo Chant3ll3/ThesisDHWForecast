@@ -3,7 +3,7 @@ sst_dataset.py — PyTorch Dataset for autoregressive SST forecasting.
 
 Loads the processed NetCDF, extracts sliding windows of
 ``input_history`` consecutive time steps, and serves
-(input, target, day_of_year) tuples for the SFNO training loop.
+(input, target, day_of_year) tuples for the FNO training loop.
 """
 
 import numpy as np
