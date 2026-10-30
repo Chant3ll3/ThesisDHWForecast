@@ -1,7 +1,7 @@
 """
 model_training.py — Phase 2: Model Training (Distributed).
 
-Trains the SFNO model for autoregressive SST forecasting using
+Trains the fno model for autoregressive SST forecasting using
 PyTorch DistributedDataParallel (DDP) for multi-GPU / multi-node.
 
 Launch methods:
@@ -23,7 +23,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from config import cfg
-from SST_Forecast_Pipeline.sfno_model import SFNO, make_grid_features, make_seasonal_encoding
+from SST_Forecast_Pipeline.fno_model import fno, make_grid_features, make_seasonal_encoding
 from ConvLSTM import *
 from SST_Forecast_Pipeline.sst_dataset import SSTForecastDataset, load_split_data
 
@@ -32,8 +32,8 @@ from SST_Forecast_Pipeline.sst_dataset import SSTForecastDataset, load_split_dat
 def _build_model(device):
     conf = cfg.model_training
 
-    if conf.model_name == "sfno":
-        model = SFNO()
+    if conf.model_name == "fno":
+        model = fno()
 
     elif conf.model_name == "convlstm":
         model = ConvLSTM(
@@ -181,7 +181,7 @@ def _build_aux_features(doy, grid_features, device, lat_size, lon_size):
 
 def _autoregressive_forward(model, x, doy, grid_features, rollout_steps, device):
     """
-    Roll the model forward autoregressively (supports SFNO and ConvLSTM).
+    Roll the model forward autoregressively (supports fno and ConvLSTM).
 
     Parameters
     ----------
@@ -208,9 +208,9 @@ def _autoregressive_forward(model, x, doy, grid_features, rollout_steps, device)
 
     for step in range(rollout_steps):
 
-        # ── Build auxiliary features (ONLY for SFNO) ──
+        # ── Build auxiliary features (ONLY for fno) ──
         aux = None
-        if conf.model_name == "sfno":
+        if conf.model_name == "fno":
             aux = _build_aux_features(current_doy, grid_features, device, H, W)
 
         # ── Prepare model input ──
@@ -233,7 +233,7 @@ def _autoregressive_forward(model, x, doy, grid_features, rollout_steps, device)
             if pred.dim() == 4 and pred.shape[1] != 1:
                 pred = pred.unsqueeze(1)
 
-        else:  # SFNO
+        else:  # fno
             pred = model(model_input)
 
         # ── Ensure correct shape (B, 1, H, W) ──
@@ -371,7 +371,7 @@ def run():
         logger.info(f"  Seasonal encoding: period={conf.seasonal_cycle_period:.2f} steps")
 
     # ── 4. Model ─────────────────────────────────────────────────
-    # model = SFNO().to(device)
+    # model = fno().to(device)
     model = _build_model(device)
     if conf.sync_batchnorm and use_ddp:
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -392,7 +392,7 @@ def run():
         total_params = sum(p.numel() for p in raw_model.parameters())
         logger.info(f"  Params: {total_params:,}")
 
-    # Input channel breakdown (mainly relevant for SFNO)
+    # Input channel breakdown (mainly relevant for fno)
     input_desc = f"{conf.input_history} history"
     if conf.add_grid_features:
         input_desc += " + grid"
@@ -403,14 +403,14 @@ def run():
         f"  Input channels: {conf.total_input_channels} ({input_desc})"
     )
 
-    # Extra detail for SFNO (spectral info is useful)
-    if conf.model_name == "sfno":
+    # Extra detail for fno (spectral info is useful)
+    if conf.model_name == "fno":
         logger.info(
             f"  Spectral modes: lat={conf.num_modes_lat}, lon={conf.num_modes_lon}"
         )
 
 
-    # logger.info(f"  SFNO: {raw_model.count_parameters():,} params, "
+    # logger.info(f"  fno: {raw_model.count_parameters():,} params, "
     #             f"{conf.total_input_channels} input channels "
     #             f"({conf.input_history} history + "
     #             f"{'grid ' if conf.add_grid_features else ''}"
