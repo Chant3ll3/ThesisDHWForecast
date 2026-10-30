@@ -1,7 +1,7 @@
 """
-sfno_model.py — Spherical Fourier Neural Operator for SST forecasting.
+fno_model.py — Spherical Fourier Neural Operator for SST forecasting.
 
-A self-contained SFNO implementation using 2D real-FFT spectral
+A self-contained fno implementation using 2D real-FFT spectral
 convolutions on a regular lat/lon grid.  All architecture hyper-
 parameters are read from ``config.cfg.model_training``.
 
@@ -140,9 +140,9 @@ class PointwiseMLP(nn.Module):
         return self.net(x)
 
 
-# ── Single SFNO Block ───────────────────────────────────────────────
+# ── Single fno Block ───────────────────────────────────────────────
 
-class SFNOBlock(nn.Module):
+class fnoBlock(nn.Module):
     """
     One layer of the Spherical Fourier Neural Operator:
       spectral_conv + pointwise_mlp → norm → activation → residual
@@ -169,9 +169,9 @@ class SFNOBlock(nn.Module):
         return x
 
 
-# ── Full SFNO Model ─────────────────────────────────────────────────
+# ── Full fno Model ─────────────────────────────────────────────────
 
-class SFNO(nn.Module):
+class fno(nn.Module):
     """
     Spherical Fourier Neural Operator for global SST forecasting.
 
@@ -199,7 +199,7 @@ class SFNO(nn.Module):
 
         # ── Spectral blocks ──────────────────────────────────────
         self.blocks = nn.ModuleList([
-            SFNOBlock(
+            fnoBlock(
                 channels=d,
                 num_modes_lat=conf.num_modes_lat,
                 num_modes_lon=conf.num_modes_lon,
