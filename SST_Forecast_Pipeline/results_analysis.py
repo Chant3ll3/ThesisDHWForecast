@@ -462,11 +462,11 @@ def compute_metrics_by_lead(ds, clim_daily, lat_weights, persistence=None):
 
         row = {
             "lead_step": int(ls),
-            "sfno_rmse": float(rmse(p, a)),
-            "sfno_mae": float(mae(p, a)),
-            "sfno_bias": float(bias_metric(p, a)),
-            "sfno_acc": float(acc_scalar(p, a, c, lat_weights)),
-            "sfno_r2": float(r_squared(p, a)),
+            "fno_rmse": float(rmse(p, a)),
+            "fno_mae": float(mae(p, a)),
+            "fno_bias": float(bias_metric(p, a)),
+            "fno_acc": float(acc_scalar(p, a, c, lat_weights)),
+            "fno_r2": float(r_squared(p, a)),
         }
         if persistence is not None:
             pp = persistence[:, i, :, :]
@@ -474,7 +474,7 @@ def compute_metrics_by_lead(ds, clim_daily, lat_weights, persistence=None):
             row["persist_mae"] = float(mae(pp, a))
             row["persist_acc"] = float(acc_scalar(pp, a, c, lat_weights))
             row["skill_score"] = (
-                (1.0 - row["sfno_rmse"] / row["persist_rmse"]) * 100.0
+                (1.0 - row["fno_rmse"] / row["persist_rmse"]) * 100.0
                 if row["persist_rmse"] > 0 else 0.0
             )
         rows.append(row)
@@ -751,19 +751,19 @@ def _plot_metrics_vs_lead(rows, split, pdf):
     fig.suptitle(f"Forecast Skill vs Lead Step — {split}", fontsize=16, fontweight="bold")
 
     ax = axes[0, 0]
-    ax.plot(leads, [r["sfno_rmse"] for r in rows], "o-", ms=3, lw=2, label="SFNO")
+    ax.plot(leads, [r["fno_rmse"] for r in rows], "o-", ms=3, lw=2, label="fno")
     if has_p:
         ax.plot(leads, [r["persist_rmse"] for r in rows], "s--", ms=3, alpha=0.7, label="Persistence")
     ax.set(xlabel="Lead step", ylabel="RMSE", title="RMSE"); ax.legend(); ax.grid(alpha=0.3)
 
     ax = axes[0, 1]
-    ax.plot(leads, [r["sfno_mae"] for r in rows], "o-", ms=3, lw=2, label="SFNO")
+    ax.plot(leads, [r["fno_mae"] for r in rows], "o-", ms=3, lw=2, label="fno")
     if has_p:
         ax.plot(leads, [r["persist_mae"] for r in rows], "s--", ms=3, alpha=0.7, label="Persistence")
     ax.set(xlabel="Lead step", ylabel="MAE", title="MAE"); ax.legend(); ax.grid(alpha=0.3)
 
     ax = axes[1, 0]
-    ax.plot(leads, [r["sfno_acc"] for r in rows], "o-", ms=3, lw=2, label="SFNO")
+    ax.plot(leads, [r["fno_acc"] for r in rows], "o-", ms=3, lw=2, label="fno")
     if has_p:
         ax.plot(leads, [r["persist_acc"] for r in rows], "s--", ms=3, alpha=0.7, label="Persistence")
     ax.set(xlabel="Lead step", ylabel="ACC", title="ACC (centered)"); ax.legend(); ax.grid(alpha=0.3)
@@ -774,7 +774,7 @@ def _plot_metrics_vs_lead(rows, split, pdf):
         ax.axhline(0, color="red", ls="--", lw=1)
         ax.set(xlabel="Lead step", ylabel="Skill (%)", title="RMSE Skill vs Persistence")
     else:
-        ax.plot(leads, [r["sfno_r2"] for r in rows], "o-", lw=2)
+        ax.plot(leads, [r["fno_r2"] for r in rows], "o-", lw=2)
         ax.set(xlabel="Lead step", ylabel="R²", title="R²")
     ax.grid(alpha=0.3)
 
@@ -785,10 +785,10 @@ def _plot_bias_and_r2(rows, split, pdf):
     leads = [r["lead_step"] for r in rows]
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle(f"Bias and R² — {split}", fontsize=16, fontweight="bold")
-    axes[0].plot(leads, [r["sfno_bias"] for r in rows], "o-", color="darkorange", ms=3, lw=2)
+    axes[0].plot(leads, [r["fno_bias"] for r in rows], "o-", color="darkorange", ms=3, lw=2)
     axes[0].axhline(0, color="gray", ls="--")
     axes[0].set(xlabel="Lead step", ylabel="Bias", title="Mean Bias"); axes[0].grid(alpha=0.3)
-    axes[1].plot(leads, [r["sfno_r2"] for r in rows], "o-", color="green", ms=3, lw=2)
+    axes[1].plot(leads, [r["fno_r2"] for r in rows], "o-", color="green", ms=3, lw=2)
     axes[1].set(xlabel="Lead step", ylabel="R²", title="R²"); axes[1].grid(alpha=0.3)
     fig.tight_layout(rect=[0, 0, 1, 0.93]); pdf.savefig(fig, dpi=150); plt.close(fig)
 
@@ -797,15 +797,15 @@ def _plot_metrics_table(rows, split, pdf):
     has_p = "persist_rmse" in rows[0]
     fig, ax = plt.subplots(figsize=(16, max(4, len(rows) * 0.4 + 2))); ax.axis("off")
     if has_p:
-        headers = ["Lead\nStep", "SFNO\nRMSE", "Persist\nRMSE", "Skill\n%",
-                    "SFNO\nMAE", "SFNO\nBias", "SFNO\nACC", "Persist\nACC", "SFNO\nR²"]
-        cells = [[f"{r['lead_step']}", f"{r['sfno_rmse']:.4f}", f"{r['persist_rmse']:.4f}",
-                  f"{r['skill_score']:.1f}%", f"{r['sfno_mae']:.4f}", f"{r['sfno_bias']:.4f}",
-                  f"{r['sfno_acc']:.4f}", f"{r['persist_acc']:.4f}", f"{r['sfno_r2']:.4f}"] for r in rows]
+        headers = ["Lead\nStep", "fno\nRMSE", "Persist\nRMSE", "Skill\n%",
+                    "fno\nMAE", "fno\nBias", "fno\nACC", "Persist\nACC", "fno\nR²"]
+        cells = [[f"{r['lead_step']}", f"{r['fno_rmse']:.4f}", f"{r['persist_rmse']:.4f}",
+                  f"{r['skill_score']:.1f}%", f"{r['fno_mae']:.4f}", f"{r['fno_bias']:.4f}",
+                  f"{r['fno_acc']:.4f}", f"{r['persist_acc']:.4f}", f"{r['fno_r2']:.4f}"] for r in rows]
     else:
-        headers = ["Lead\nStep", "SFNO\nRMSE", "SFNO\nMAE", "SFNO\nBias", "SFNO\nACC", "SFNO\nR²"]
-        cells = [[f"{r['lead_step']}", f"{r['sfno_rmse']:.4f}", f"{r['sfno_mae']:.4f}",
-                  f"{r['sfno_bias']:.4f}", f"{r['sfno_acc']:.4f}", f"{r['sfno_r2']:.4f}"] for r in rows]
+        headers = ["Lead\nStep", "fno\nRMSE", "fno\nMAE", "fno\nBias", "fno\nACC", "fno\nR²"]
+        cells = [[f"{r['lead_step']}", f"{r['fno_rmse']:.4f}", f"{r['fno_mae']:.4f}",
+                  f"{r['fno_bias']:.4f}", f"{r['fno_acc']:.4f}", f"{r['fno_r2']:.4f}"] for r in rows]
     table = ax.table(cellText=cells, colLabels=headers, loc="center", cellLoc="center")
     table.auto_set_font_size(False); table.set_fontsize(9); table.scale(1, 1.4)
     for (row, col), cell in table.get_celld().items():
@@ -945,7 +945,7 @@ def _plot_sample_chains(ds, split, n_samples, destd, ocean_mask, pdf):
             ax = _create_map_ax(fig, len(show), 3, row * 3 + 2)
             _map_pcolormesh(ax, lon, lat, p, cmap="RdYlBu_r",
                             vmin=vmin_sst, vmax=vmax_sst, shading="auto")
-            ax.set_title(f"SFNO — Step {ls} ({unit})")
+            ax.set_title(f"fno — Step {ls} ({unit})")
 
             # Error
             ax = _create_map_ax(fig, len(show), 3, row * 3 + 3)
@@ -991,7 +991,7 @@ def _plot_global_mean_chains(ds, persistence, split, n_samples, destd, pdf):
         gm_p = destd.to_celsius(np.nanmean(pred[ci], axis=(1, 2)), vt)
         gm_a = destd.to_celsius(np.nanmean(actual[ci], axis=(1, 2)), vt)
         ax.plot(lead_steps, gm_a, "k-", lw=2, label="Actual")
-        ax.plot(lead_steps, gm_p, "r--", lw=2, label="SFNO")
+        ax.plot(lead_steps, gm_p, "r--", lw=2, label="fno")
         if persistence is not None:
             gm_pe = destd.to_celsius(np.nanmean(persistence[ci], axis=(1, 2)), vt)
             ax.plot(lead_steps, gm_pe, "b:", lw=1.5, label="Persistence")
@@ -1017,10 +1017,10 @@ def _plot_enso34_skill(rows, split, pdf):
     leads = [r["lead_step"] for r in rows]
     fig, axes = plt.subplots(1, 3, figsize=(18, 5))
     fig.suptitle(f"ENSO 3.4 Forecast Skill — {split}", fontsize=16, fontweight="bold")
-    axes[0].plot(leads, [r["enso_rmse"] for r in rows], "o-", ms=3, lw=2, label="SFNO")
+    axes[0].plot(leads, [r["enso_rmse"] for r in rows], "o-", ms=3, lw=2, label="fno")
     axes[0].plot(leads, [r["persist_enso_rmse"] for r in rows], "s--", ms=3, alpha=0.7, label="Persistence")
     axes[0].set(xlabel="Lead step", ylabel="RMSE", title="ENSO 3.4 RMSE"); axes[0].legend(); axes[0].grid(alpha=0.3)
-    axes[1].plot(leads, [r["enso_corr"] for r in rows], "o-", ms=3, lw=2, label="SFNO")
+    axes[1].plot(leads, [r["enso_corr"] for r in rows], "o-", ms=3, lw=2, label="fno")
     axes[1].plot(leads, [r["persist_enso_corr"] for r in rows], "s--", ms=3, alpha=0.7, label="Persistence")
     axes[1].set(xlabel="Lead step", ylabel="Corr", title="ENSO 3.4 Correlation"); axes[1].legend()
     axes[1].set_ylim(-0.2, 1.05); axes[1].grid(alpha=0.3)
@@ -1044,12 +1044,12 @@ def _plot_enso34_timeseries(ep, ea, epe, ds, split, n_samples, pdf):
         r, c = divmod(i, ncols)
         ax = axes[r, c]
         ax.plot(lead_steps, ea[ci], "k-", lw=2, label="Actual")
-        ax.plot(lead_steps, ep[ci], "r--", lw=2, label="SFNO")
+        ax.plot(lead_steps, ep[ci], "r--", lw=2, label="fno")
         ax.plot(lead_steps, epe[ci], "b:", lw=1.5, label="Persistence")
         ax.fill_between(lead_steps, -0.5, 0.5, alpha=0.1, color="gray")
         ax.axhline(0, color="gray", lw=0.5)
 
-        # Correlation between SFNO and actual
+        # Correlation between fno and actual
         corr = np.corrcoef(ep[ci], ea[ci])[0, 1] if len(ep[ci]) > 2 else 0.0
         ax.set_title(f"Init: {str(init_times[ci])[:10]}  (r={corr:.3f})",
                      fontsize=9)
@@ -1099,7 +1099,7 @@ def _plot_enso34_scatter(ep, ea, ds, split, pdf):
 
 def _plot_enso34_table(rows, split, pdf):
     fig, ax = plt.subplots(figsize=(14, max(4, len(rows) * 0.4 + 2))); ax.axis("off")
-    headers = ["Lead\nStep", "SFNO\nRMSE", "Persist\nRMSE", "SFNO\nCorr", "Persist\nCorr", "SFNO\nBias"]
+    headers = ["Lead\nStep", "fno\nRMSE", "Persist\nRMSE", "fno\nCorr", "Persist\nCorr", "fno\nBias"]
     cells = [[f"{r['lead_step']}", f"{r['enso_rmse']:.4f}", f"{r['persist_enso_rmse']:.4f}",
               f"{r['enso_corr']:.4f}", f"{r['persist_enso_corr']:.4f}", f"{r['enso_bias']:.4f}"] for r in rows]
     table = ax.table(cellText=cells, colLabels=headers, loc="center", cellLoc="center")
@@ -1122,19 +1122,19 @@ def write_text_report(all_results, all_enso, report_path):
         has_p = "persist_rmse" in rows[0]
         lines.append(f"── {split.upper()} — GLOBAL METRICS ──"); lines.append("")
         if has_p:
-            hdr = f"  {'Lead':>4s}  {'SFNO RMSE':>10s}  {'Pers RMSE':>10s}  {'Skill%':>7s}  {'MAE':>9s}  {'Bias':>8s}  {'ACC':>9s}  {'Pers ACC':>9s}  {'R²':>7s}"
+            hdr = f"  {'Lead':>4s}  {'fno RMSE':>10s}  {'Pers RMSE':>10s}  {'Skill%':>7s}  {'MAE':>9s}  {'Bias':>8s}  {'ACC':>9s}  {'Pers ACC':>9s}  {'R²':>7s}"
         else:
             hdr = f"  {'Lead':>4s}  {'RMSE':>10s}  {'MAE':>9s}  {'Bias':>8s}  {'ACC':>9s}  {'R²':>7s}"
         lines.append(hdr); lines.append("  " + "-" * (len(hdr) - 2))
         for r in rows:
             if has_p:
-                lines.append(f"  {r['lead_step']:>4d}  {r['sfno_rmse']:>10.4f}  {r['persist_rmse']:>10.4f}  {r['skill_score']:>6.1f}%  {r['sfno_mae']:>9.4f}  {r['sfno_bias']:>8.4f}  {r['sfno_acc']:>9.4f}  {r['persist_acc']:>9.4f}  {r['sfno_r2']:>7.4f}")
+                lines.append(f"  {r['lead_step']:>4d}  {r['fno_rmse']:>10.4f}  {r['persist_rmse']:>10.4f}  {r['skill_score']:>6.1f}%  {r['fno_mae']:>9.4f}  {r['fno_bias']:>8.4f}  {r['fno_acc']:>9.4f}  {r['persist_acc']:>9.4f}  {r['fno_r2']:>7.4f}")
             else:
-                lines.append(f"  {r['lead_step']:>4d}  {r['sfno_rmse']:>10.4f}  {r['sfno_mae']:>9.4f}  {r['sfno_bias']:>8.4f}  {r['sfno_acc']:>9.4f}  {r['sfno_r2']:>7.4f}")
+                lines.append(f"  {r['lead_step']:>4d}  {r['fno_rmse']:>10.4f}  {r['fno_mae']:>9.4f}  {r['fno_bias']:>8.4f}  {r['fno_acc']:>9.4f}  {r['fno_r2']:>7.4f}")
         lines.extend(["", ""])
     for split, rows in all_enso.items():
         lines.append(f"── {split.upper()} — ENSO 3.4 ──"); lines.append("")
-        hdr = f"  {'Lead':>4s}  {'SFNO RMSE':>10s}  {'Pers RMSE':>10s}  {'SFNO Corr':>10s}  {'Pers Corr':>10s}  {'Bias':>8s}"
+        hdr = f"  {'Lead':>4s}  {'fno RMSE':>10s}  {'Pers RMSE':>10s}  {'fno Corr':>10s}  {'Pers Corr':>10s}  {'Bias':>8s}"
         lines.append(hdr); lines.append("  " + "-" * (len(hdr) - 2))
         for r in rows:
             lines.append(f"  {r['lead_step']:>4d}  {r['enso_rmse']:>10.4f}  {r['persist_enso_rmse']:>10.4f}  {r['enso_corr']:>10.4f}  {r['persist_enso_corr']:>10.4f}  {r['enso_bias']:>8.4f}")
